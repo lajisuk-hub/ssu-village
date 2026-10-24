@@ -2,3 +2,5 @@ _shot*
 .vercel
 .env*
 node_modules
+
+.vercel

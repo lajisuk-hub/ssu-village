@@ -702,6 +702,8 @@ function showCaption(stopIdx) {
   }
 }
 $('capGo').onclick = () => capPlace && openPlace(capPlace);
+$('capPhoto').onclick = () => capPlace && openRoadview(capPlace);
+document.addEventListener('click', e => { const b = e.target.closest('[data-rv]'); if (b) openRoadview(placeById(b.dataset.rv)); });
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const unlocked = new Set();
@@ -715,7 +717,8 @@ function bodyHtml(p) {
   }
   const ok = p.locked ? `<div class="ok">✅ ${esc(p.name)}에 들어왔어요. (견본 화면)</div>` : '';
   const cta = p.cta ? `<a class="btn" href="${esc(p.cta.href)}">${esc(p.cta.label)}</a>` : '';
-  return `${ok}<p>${esc(p.desc)}</p>${list}${cta}`;
+  const photo = `<button class="btn photo" data-rv="${p.id}">📷 실제 사진으로 보기</button>`;
+  return `${ok}<p>${esc(p.desc)}</p>${list}${cta}${photo}`;
 }
 function renderPanel(p) {
   $('pNo').textContent = numText(p);
@@ -928,3 +931,60 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+/* ───────── 12. 실제 사진(카카오 로드뷰) ───────── */
+// 카카오 개발자 「교육비안내」 앱의 JavaScript 키 — 원래 화면에 드러나는 키이고, 등록한 주소(ssu-village.vercel.app·localhost:4590)에서만 작동
+const KAKAO_JS_KEY = '62bec8439ea96650806d86145ded2bd2';
+const latLngOf = p => p.lat ? [p.lat, p.lng] : [37.4962 - p.z * SCALE / 110950, 126.9574 + p.x * SCALE / 88350];
+let kakaoReady;
+function loadKakao() {
+  return kakaoReady ??= new Promise((ok, fail) => {
+    const s = document.createElement('script');
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&autoload=false`;
+    s.onload = () => window.kakao.maps.load(ok);
+    s.onerror = () => { kakaoReady = null; fail(); };
+    document.head.appendChild(s);
+  });
+}
+let rv, rvClient, rvTag, rvPending = null;
+const rvBox = $('rv');
+function rvAim() { // 사진 속 건물 쪽으로 고개를 돌리고, 건물 자리에 이름표를 띄운다
+  const p = rvPending; if (!p) return;
+  rvPending = null;
+  const K = kakao.maps, [lat, lng] = latLngOf(p), pos = new K.LatLng(lat, lng);
+  const el = document.createElement('div');
+  el.className = 'rv-tag';
+  el.innerHTML = `<b>${p.no ? `<i>${esc(p.no)}</i>` : ''}${esc(p.name)}</b><button title="보물 견본">⭐</button>`;
+  el.querySelector('button').onclick = ev => { ev.stopPropagation(); ev.currentTarget.remove(); say('⭐ 보물을 찾았어요! (견본)'); };
+  if (rvTag) rvTag.setMap(null);
+  rvTag = new K.CustomOverlay({ position: pos, content: el, xAnchor: 0.5, yAnchor: 1 });
+  rvTag.setMap(rv);
+  rvTag.setAltitude(Math.min(Math.min(p.H || 6, 16) * SCALE * 0.4, 12)); // 이름표는 건물 중간쯤 높이(m)
+  const vp = rv.getProjection().viewpointFromCoords(rvTag.getPosition(), 2); // 눈높이 쪽을 바라보게
+  rv.setViewpoint({ pan: vp.pan, tilt: Math.min(vp.tilt, 12), zoom: -1 }); // 조금 넓게
+}
+async function openRoadview(p) {
+  if (!p) return;
+  stopAuto();
+  rvBox.classList.add('open');
+  rvBox.setAttribute('aria-hidden', 'false');
+  $('rvTitle').textContent = `${p.no ? p.no + ' ' : ''}${p.name} · 실제 사진`;
+  $('rvMsg').textContent = '실제 사진을 불러오는 중이에요…';
+  try { await loadKakao(); } catch { $('rvMsg').textContent = '카카오 지도를 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.'; return; }
+  const K = kakao.maps, [lat, lng] = latLngOf(p);
+  if (!rv) {
+    rv = new K.Roadview($('rvView'));
+    rvClient = new K.RoadviewClient();
+    K.event.addListener(rv, 'init', rvAim);
+    K.event.addListener(rv, 'panoid_changed', () => setTimeout(rvAim, 50));
+  } else rv.relayout();
+  rvClient.getNearestPanoId(new K.LatLng(lat, lng), 120, id => {
+    if (!id) { $('rvMsg').textContent = '이 건물 가까이에는 로드뷰 사진이 없어요.'; return; }
+    $('rvMsg').textContent = '';
+    rvPending = p;
+    rv.setPanoId(id, new K.LatLng(lat, lng));
+  });
+}
+function closeRoadview() { rvBox.classList.remove('open'); rvBox.setAttribute('aria-hidden', 'true'); }
+$('rvClose').onclick = closeRoadview;
+addEventListener('keydown', e => e.key === 'Escape' && closeRoadview());
