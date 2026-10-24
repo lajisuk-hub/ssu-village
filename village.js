@@ -895,6 +895,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const stop = applyCamera(dt);
   showCaption(stop);
+  liveTick(now, stop);
   const T = now / 1000;
   for (const c of clouds) { c.position.x += c.userData.v * dt; if (c.position.x > 170) c.position.x = -170; }
   for (const g of people) {
@@ -946,23 +947,50 @@ function loadKakao() {
     document.head.appendChild(s);
   });
 }
-let rv, rvClient, rvTag, rvPending = null;
-const rvBox = $('rv');
-function rvAim() { // 사진 속 건물 쪽으로 고개를 돌리고, 건물 자리에 이름표를 띄운다
-  const p = rvPending; if (!p) return;
-  rvPending = null;
-  const K = kakao.maps, [lat, lng] = latLngOf(p), pos = new K.LatLng(lat, lng);
-  const el = document.createElement('div');
-  el.className = 'rv-tag';
-  el.innerHTML = `<b>${p.no ? `<i>${esc(p.no)}</i>` : ''}${esc(p.name)}</b><button title="보물 견본">⭐</button>`;
-  el.querySelector('button').onclick = ev => { ev.stopPropagation(); ev.currentTarget.remove(); say('⭐ 보물을 찾았어요! (견본)'); };
-  if (rvTag) rvTag.setMap(null);
-  rvTag = new K.CustomOverlay({ position: pos, content: el, xAnchor: 0.5, yAnchor: 1 });
-  rvTag.setMap(rv);
-  rvTag.setAltitude(Math.min(Math.min(p.H || 6, 16) * SCALE * 0.4, 12)); // 이름표는 건물 중간쯤 높이(m)
-  const vp = rv.getProjection().viewpointFromCoords(rvTag.getPosition(), 2); // 눈높이 쪽을 바라보게
-  rv.setViewpoint({ pan: vp.pan, tilt: Math.min(vp.tilt, 12), zoom: -1 }); // 조금 넓게
+// 로드뷰 한 화면(뷰어) — 건물 쪽으로 고개를 돌리고, 사진 속 건물 자리에 이름표·보물을 띄운다
+function makeViewer(container) {
+  const v = { rv: null, client: null, tag: null, pending: null, id: null, onReady: null };
+  v.aim = () => {
+    const p = v.pending; if (!p) return;
+    v.pending = null;
+    const K = kakao.maps, [lat, lng] = latLngOf(p);
+    const el = document.createElement('div');
+    el.className = 'rv-tag';
+    el.innerHTML = `<b>${p.no ? `<i>${esc(p.no)}</i>` : ''}${esc(p.name)}</b><button title="보물 견본">⭐</button>`;
+    el.querySelector('button').onclick = ev => { ev.stopPropagation(); ev.currentTarget.remove(); say('⭐ 보물을 찾았어요! (견본)'); };
+    if (v.tag) v.tag.setMap(null);
+    v.tag = new K.CustomOverlay({ position: new K.LatLng(lat, lng), content: el, xAnchor: 0.5, yAnchor: 1 });
+    v.tag.setMap(v.rv);
+    v.tag.setAltitude(Math.min(Math.min(p.H || 6, 16) * SCALE * 0.4, 12)); // 이름표는 건물 중간쯤 높이(m)
+    const vp = v.rv.getProjection().viewpointFromCoords(v.tag.getPosition(), 2); // 눈높이 쪽을 바라보게
+    v.rv.setViewpoint({ pan: vp.pan, tilt: Math.min(vp.tilt, 12), zoom: -1 }); // 조금 넓게
+    setTimeout(() => v.onReady?.(p), 250);
+  };
+  // 사진이 있으면 true, 없으면 false
+  v.show = async p => {
+    await loadKakao();
+    const K = kakao.maps, [lat, lng] = latLngOf(p);
+    if (!v.rv) {
+      v.rv = new K.Roadview(container);
+      v.client = new K.RoadviewClient();
+      K.event.addListener(v.rv, 'init', v.aim);
+      K.event.addListener(v.rv, 'panoid_changed', () => setTimeout(v.aim, 50));
+    } else v.rv.relayout();
+    return new Promise(res => v.client.getNearestPanoId(new K.LatLng(lat, lng), 120, pid => {
+      if (!pid) return res(false);
+      v.id = p.id;
+      v.pending = p;
+      v.rv.setPanoId(pid, new K.LatLng(lat, lng));
+      setTimeout(() => v.pending === p && v.aim(), 1500); // 같은 사진이라 바뀜 신호가 안 올 때
+      res(true);
+    }));
+  };
+  return v;
 }
+
+// ① 큰 화면(누르면 화면 가득) — 휴대폰에서 손가락으로 돌려 볼 때
+const big = makeViewer($('rvView'));
+const rvBox = $('rv');
 async function openRoadview(p) {
   if (!p) return;
   stopAuto();
@@ -970,21 +998,37 @@ async function openRoadview(p) {
   rvBox.setAttribute('aria-hidden', 'false');
   $('rvTitle').textContent = `${p.no ? p.no + ' ' : ''}${p.name} · 실제 사진`;
   $('rvMsg').textContent = '실제 사진을 불러오는 중이에요…';
-  try { await loadKakao(); } catch { $('rvMsg').textContent = '카카오 지도를 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.'; return; }
-  const K = kakao.maps, [lat, lng] = latLngOf(p);
-  if (!rv) {
-    rv = new K.Roadview($('rvView'));
-    rvClient = new K.RoadviewClient();
-    K.event.addListener(rv, 'init', rvAim);
-    K.event.addListener(rv, 'panoid_changed', () => setTimeout(rvAim, 50));
-  } else rv.relayout();
-  rvClient.getNearestPanoId(new K.LatLng(lat, lng), 120, id => {
-    if (!id) { $('rvMsg').textContent = '이 건물 가까이에는 로드뷰 사진이 없어요.'; return; }
-    $('rvMsg').textContent = '';
-    rvPending = p;
-    rv.setPanoId(id, new K.LatLng(lat, lng));
-  });
+  try { $('rvMsg').textContent = await big.show(p) ? '' : '이 건물 가까이에는 로드뷰 사진이 없어요.'; }
+  catch { $('rvMsg').textContent = '카카오 지도를 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.'; }
 }
 function closeRoadview() { rvBox.classList.remove('open'); rvBox.setAttribute('aria-hidden', 'true'); }
 $('rvClose').onclick = closeRoadview;
 addEventListener('keydown', e => e.key === 'Escape' && closeRoadview());
+
+// ② 둘러보기 중 자동 전환 — 건물 앞에 도착해 잠시 멈추면 3D가 실제 사진으로 바뀐다
+const liveEl = $('rvLive');
+const live = makeViewer($('rvLiveView'));
+let liveOn = true, liveWant = null, liveSince = 0, liveShown = null, liveBusy = false;
+live.onReady = p => { if (liveWant !== p.id) return; live.rv.relayout(); liveShown = p.id; setTimeout(() => liveShown === p.id && liveEl.classList.add('on'), 500); }; // 사진 조각이 들어올 틈을 조금 준다
+function liveTick(now, stopIdx) {
+  const s = STOPS[stopIdx];
+  const want = !liveOn || rvBox.classList.contains('open') ? null : focus ? openId : (s && s.place ? s.place : null);
+  if (want !== liveWant) { liveWant = want; liveSince = now; if (liveShown && liveShown !== want) { liveEl.classList.remove('on'); liveShown = null; } }
+  // 카메라가 내려앉을 시간(0.9초)을 준 뒤에 바꾼다
+  if (want && want !== liveShown && !liveBusy && now - liveSince > 900 && live.id !== want + '#none') {
+    const p = placeById(want);
+    if (p.kind === 'field') return;
+    liveBusy = true;
+    live.show(p).then(ok => { if (!ok) live.id = want + '#none'; })
+      .catch(() => {}).finally(() => { liveBusy = false; });
+  }
+}
+// 사진 위에서 마우스 휠을 굴려도 페이지가 내려가게(사진 확대 대신)
+liveEl.addEventListener('wheel', e => { e.stopPropagation(); e.preventDefault(); scrollBy(0, e.deltaY); }, { capture: true, passive: false });
+const liveBtn = $('liveBtn');
+function setLive(on) {
+  liveOn = on;
+  liveBtn.textContent = on ? '🧊 3D로 보기' : '📷 실제 사진';
+  if (!on) { liveEl.classList.remove('on'); liveShown = null; }
+}
+liveBtn.onclick = () => setLive(!liveOn);

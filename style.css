@@ -113,3 +113,22 @@ footer{margin-top:40px;color:var(--sub);font-size:13px;text-align:center}
 .rv-tag i{font-style:normal;background:#0a7cc1;color:#fff;border-radius:50%;width:30px;height:30px;display:grid;place-items:center;font-size:13px}
 .rv-tag button{border:0;background:#ffcf3a;border-radius:50%;width:44px;height:44px;font-size:24px;cursor:pointer;box-shadow:0 0 0 4px rgba(255,207,58,.35);animation:rvpulse 1.4s ease-in-out infinite}
 @keyframes rvpulse{50%{transform:scale(1.12)}}
+
+/* 둘러보기 중 자동으로 바뀌는 실제 사진 */
+.rv-live{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .9s ease,visibility 0s .9s;background:#111}
+.rv-live.on{opacity:1;visibility:visible;transition:opacity .9s ease}
+.rv-live-view{position:absolute;inset:0}
+.rv-credit{position:absolute;left:16px;bottom:62px;z-index:3;background:rgba(0,0,0,.5);color:#fff;font-size:12px;padding:5px 10px;border-radius:999px;pointer-events:none}
+.hero,.caption,.hud,#map,.panel,.toast{z-index:8}
+@media (max-width:720px){
+  .rv-live{pointer-events:none} /* 휴대폰: 사진 위에서도 위아래로 밀어 내려가게 — 돌려 보기는 「사진 크게 보기」로 */
+  .rv-credit{bottom:58px;left:12px}
+}
+@media (min-width:721px){ .caption.show{transform:translate(0,-50%)} } /* 넓은 화면 설명 카드는 오른쪽에 */
+@media (max-width:720px){ /* 휴대폰 이름 띠: 이름 한 줄 + 단추 두 개 */
+  .caption{left:12px;right:12px;width:auto;max-width:none;flex-wrap:wrap;transform:translateY(20px)}
+  .caption.show{transform:none}
+  .caption .capHead{flex:1 1 calc(100% - 60px)}
+  .caption button{flex:1 1 40%;padding:10px 8px;font-size:14px}
+  .hud button,.hud .stars{padding:7px 10px;font-size:12px}
+}
