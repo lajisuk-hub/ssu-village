@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>숭실 캠퍼스 마을 (견본)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<header class="top">
+  <b class="brand">숭실 캠퍼스 마을</b>
+  <span class="now" id="now">서울 동작구</span>
+  <nav><a href="#list">목록으로 보기</a></nav>
+</header>
+
+<section id="tour">
+  <div class="stage">
+    <canvas id="c"></canvas>
+
+    <div class="hero" id="hero">
+      <p class="eyebrow">숭실대학교 교육대학원 유아교육전공 · 2026-2학기</p>
+      <h1>영유아 교육현장 속의<br><em>AI 교육 혁신</em></h1>
+      <p class="lead">실제 숭실대 캠퍼스 배치 그대로 건물 25곳을 놓았어요.<br>건물을 누르면 그곳으로 다가갑니다.</p>
+      <p class="hint">↓ 아래로 내려서 둘러보기</p>
+    </div>
+
+    <div class="caption" id="caption">
+      <span class="no" id="capNo"></span>
+      <div class="capHead"><b id="capName"></b><small id="capSub"></small></div>
+      <p class="capDesc" id="capDesc"></p>
+      <ul class="capItems" id="capItems"></ul>
+      <button id="capGo">자세히 보기</button>
+    </div>
+
+    <div class="hud">
+      <button id="autoBtn">▶ 자동으로 둘러보기</button>
+      <button id="homeBtn">처음으로</button>
+      <span class="stars" id="starCount">⭐ 숨은 별 0/5</span>
+    </div>
+
+    <canvas id="map" width="170" height="170" title="누르면 그곳으로 가요"></canvas>
+
+    <aside class="panel" id="panel" aria-hidden="true">
+      <button class="close" id="panelClose" aria-label="닫기">×</button>
+      <span class="pno" id="pNo"></span>
+      <h2 id="pName"></h2>
+      <p class="psub" id="pSub"></p>
+      <div id="pBody"></div>
+    </aside>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</section>
+
+<section id="list">
+  <h2>목록으로 보기</h2>
+  <p>마을이 무겁게 느껴지면 여기서 바로 고르세요.</p>
+  <div class="cards" id="cards"></div>
+  <footer>견본 화면입니다 · 건물 위치와 층수는 숭실대학교 홈페이지 캠퍼스맵을 참고해 코드로 그렸어요</footer>
+</section>
+
+<script type="module" src="village.js"></script>
+</body>
+</html>
