@@ -69,6 +69,35 @@
   <p class="rv-hint">손가락(마우스)으로 끌어 둘러보고, 길 위 화살표를 눌러 걸어가 보세요 · 사진: 카카오맵 로드뷰</p>
 </div>
 
+<div class="room" id="room" aria-hidden="true">
+  <div class="room-css" id="roomCss"></div>
+  <canvas id="roomCanvas"></canvas>
+  <div class="room-top">
+    <button id="roomExit">← 캠퍼스로 나가기</button>
+    <b>웨스트민스터홀 강의실</b>
+    <span class="room-tag">모의 강의실</span>
+  </div>
+  <p class="room-hint" id="roomHint">바닥을 누르면 걸어가요 · 끌어서 둘러보기<span class="pc-only"> · 휠로 확대/축소 · 키보드 화살표로도 움직여요</span></p>
+  <div class="room-video">
+    <button id="roomPlay">▶ 강의 재생</button>
+    <button id="roomBig">⛶ 크게 보기</button>
+    <button id="roomLink">🔗 영상 바꾸기</button>
+    <p class="room-msg" id="roomVideoMsg"></p>
+  </div>
+  <div class="room-link" id="roomLinkBox" hidden>
+    <b>유튜브 주소를 붙여 넣어 주세요</b>
+    <input id="roomLinkInput" type="text" placeholder="https://youtu.be/..." autocomplete="off">
+    <p class="room-msg" id="roomLinkMsg"></p>
+    <small>지금은 이 기기에서만 바뀌어요. 모두에게 보이게 하려면 주소를 알려 주세요.</small>
+    <div><button id="roomLinkGo">이 영상으로 바꾸기</button> <button id="roomLinkReset" class="ghost">처음 영상으로</button></div>
+  </div>
+  <div class="room-bar">
+    <button id="roomSit">🪑 자리에 앉기</button>
+    <button id="roomWave">👋 인사</button>
+    <button id="roomHand">✋ 손들기</button>
+  </div>
+</div>
+
 <section id="list">
   <h2>목록으로 보기</h2>
   <p>마을이 무겁게 느껴지면 여기서 바로 고르세요.</p>

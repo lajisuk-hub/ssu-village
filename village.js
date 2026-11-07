@@ -55,7 +55,7 @@ const PLACES = [
   { id: 'westminster', no: '22', name: '웨스트민스터홀', cam: { yaw: -0.35, pitch: 0.78, dist: 34 }, lat: 37.4967804, lng: 126.9584436, w: 10, d: 7, floors: 5, style: 'glass', color: '#4f7fb5', feat: true,
     sub: '교육대학원 · 프로그램 안내', desc: '일반대학원과 특수대학원이 있는 파란 유리 건물이에요. 2026-2학기 현장역량강화 프로그램 「영유아 교육현장 속의 AI 교육 혁신」을 여기서 안내해요.',
     items: ['11월 7일 학회 추계학술대회 (7시간)', '11월 27일 비대면(Zoom) 사례발표', '11월 28일 대면 워크숍 (5시간)'],
-    cta: { label: 'Zoom 입장하기 (견본)', href: '#' } },
+    cta: { label: 'Zoom 입장하기 (견본)', href: '#' }, room: true },
   { id: 'student', no: '23', name: '학생회관', cam: { yaw: 0.2, pitch: 0.62, dist: 32 }, lat: 37.4970898, lng: 126.9570321, w: 8.5, d: 8, floors: 5, style: 'modern', color: '#d9d6cf', feat: true, locked: true,
     sub: '수강생용 · 비밀번호', desc: '학생식당과 동아리방이 있는 건물이에요. 과제 내기와 질문 남기기를 하는 곳으로 꾸몄어요.', items: ['과제 제출', '질문 남기기', '수료증 받기'] },
   { id: 'changui', no: '24', name: '창의관', lat: 37.4947011, lng: 126.9591821, w: 7, d: 6, floors: 8, style: 'glass', color: '#2f4f86',
@@ -697,13 +697,27 @@ function showCaption(stopIdx) {
       $('capSub').textContent = p.sub;
       $('capDesc').textContent = p.desc;
       $('capItems').innerHTML = p.items.map(i => `<li>${esc(i)}</li>`).join('');
-      $('capGo').textContent = p.locked ? '🔒 들어가기' : '자세히 보기';
+      $('capGo').textContent = p.locked ? '🔒 들어가기' : p.room ? '🎓 강의실 들어가기' : '자세히 보기';
     }
   }
 }
-$('capGo').onclick = () => capPlace && openPlace(capPlace);
+$('capGo').onclick = () => { if (!capPlace) return; capPlace.room ? enterClassroom() : openPlace(capPlace); };
 $('capPhoto').onclick = () => capPlace && openRoadview(capPlace);
 document.addEventListener('click', e => { const b = e.target.closest('[data-rv]'); if (b) openRoadview(placeById(b.dataset.rv)); });
+document.addEventListener('click', e => { if (e.target.closest('[data-room]')) enterClassroom(); });
+
+// 모의 강의실: 들어가 있는 동안 캠퍼스 마을은 그리기를 멈춘다
+let inRoom = false;
+async function enterClassroom() {
+  if (inRoom) return;
+  inRoom = true;
+  stopAuto();
+  closePanel();
+  try {
+    const { openClassroom } = await import('./classroom.js');
+    openClassroom(() => { inRoom = false; if (location.hash === '#classroom') history.replaceState(null, '', location.pathname); });
+  } catch { inRoom = false; say('강의실을 불러오지 못했어요. 다시 눌러 주세요.'); }
+}
 
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const unlocked = new Set();
@@ -718,7 +732,8 @@ function bodyHtml(p) {
   const ok = p.locked ? `<div class="ok">✅ ${esc(p.name)}에 들어왔어요. (견본 화면)</div>` : '';
   const cta = p.cta ? `<a class="btn" href="${esc(p.cta.href)}">${esc(p.cta.label)}</a>` : '';
   const photo = `<button class="btn photo" data-rv="${p.id}">📷 실제 사진으로 보기</button>`;
-  return `${ok}<p>${esc(p.desc)}</p>${list}${cta}${photo}`;
+  const room = p.room ? `<button class="btn" data-room>🎓 강의실 들어가기</button>` : '';
+  return `${ok}<p>${esc(p.desc)}</p>${list}${room}${cta}${photo}`;
 }
 function renderPanel(p) {
   $('pNo').textContent = numText(p);
@@ -892,6 +907,7 @@ resize();
 const _v = new THREE.Vector3();
 let last = performance.now(), clockTick = 0;
 function frame(now) {
+  if (inRoom) { last = now; requestAnimationFrame(frame); return; }
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   const stop = applyCamera(dt);
   showCaption(stop);
@@ -932,6 +948,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+if (location.hash === '#classroom') enterClassroom();
 
 /* ───────── 12. 실제 사진(카카오 로드뷰) ───────── */
 // 카카오 개발자 「교육비안내」 앱의 JavaScript 키 — 원래 화면에 드러나는 키이고, 등록한 주소(ssu-village.vercel.app·localhost:4590)에서만 작동
